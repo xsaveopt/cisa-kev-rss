@@ -8,10 +8,8 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 
-// Start tracker loop (every 10 minutes, matching the original script's sleep 600)
 tracker.startTracking(10);
 
-// API Routes
 app.use("/", routes);
 
 app.listen(port, () => {

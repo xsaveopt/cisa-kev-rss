@@ -22,8 +22,6 @@ function escapeXml(unsafe) {
 }
 
 function formatDate(dateStr) {
-  // Input: YYYY-MM-DD
-  // Output: Mon, 01 Jan 2023 00:00:00 +0000
   const date = new Date(dateStr);
   return date.toUTCString();
 }
@@ -79,7 +77,7 @@ ${items}
 }
 
 function startTracking(intervalMinutes) {
-  updateFeed(); // Initial run
+  updateFeed();
   setInterval(updateFeed, intervalMinutes * 60 * 1000);
 }
 
