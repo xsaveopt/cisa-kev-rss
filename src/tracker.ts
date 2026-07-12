@@ -1,11 +1,24 @@
 const FEED_URL =
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 
+interface Vulnerability {
+  cveID: string;
+  vulnerabilityName: string;
+  shortDescription: string;
+  dateAdded: string;
+}
+
+interface KevFeed {
+  catalogVersion: string;
+  dateReleased: string;
+  vulnerabilities: Vulnerability[];
+}
+
 let currentRSS = "";
 
-function escapeXml(unsafe) {
+function escapeXml(unsafe: string | undefined): string {
   if (!unsafe) return "";
-  return unsafe.replace(/[<>&'"]/g, function (c) {
+  return unsafe.replace(/[<>&'"]/g, (c) => {
     switch (c) {
       case "<":
         return "&lt;";
@@ -17,23 +30,25 @@ function escapeXml(unsafe) {
         return "&apos;";
       case '"':
         return "&quot;";
+      default:
+        return c;
     }
   });
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toUTCString();
 }
 
-async function updateFeed() {
+export async function updateFeed(): Promise<void> {
   try {
     const response = await fetch(FEED_URL);
     if (!response.ok) {
       console.error(`Failed to fetch CISA feed: ${response.statusText}`);
       return;
     }
-    const json = await response.json();
+    const json = (await response.json()) as KevFeed;
 
     const catalogVersion = json.catalogVersion;
     const dateReleased = json.dateReleased;
@@ -68,24 +83,17 @@ ${items}
 </rss>`;
 
     currentRSS = xml;
-    console.log(
-      `[${new Date().toISOString()}] Feed updated. Version: ${catalogVersion}`,
-    );
+    console.log(`[${new Date().toISOString()}] Feed updated. Version: ${catalogVersion}`);
   } catch (error) {
     console.error("Error updating feed:", error);
   }
 }
 
-function startTracking(intervalMinutes) {
+export function startTracking(intervalMinutes: number): void {
   updateFeed();
   setInterval(updateFeed, intervalMinutes * 60 * 1000);
 }
 
-function getRSS() {
+export function getRSS(): string {
   return currentRSS;
 }
-
-module.exports = {
-  startTracking,
-  getRSS,
-};

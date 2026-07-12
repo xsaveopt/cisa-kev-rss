@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   ci:
-    name: Install & syntax check
+    name: Lint, format, type check & test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -28,8 +28,17 @@ jobs:
 
       - run: npm ci
 
-      - name: Node syntax check
-        run: node --check src/server.js
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run fmt:check
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
 
   docker:
     name: Docker build (no push)
