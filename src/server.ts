@@ -1,14 +1,14 @@
-const express = require("express");
-const cors = require("cors");
-const routes = require("./routes");
-const tracker = require("./tracker");
+import express from "express";
+import cors from "cors";
+import routes from "./routes.ts";
+import { startTracking } from "./tracker.ts";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(cors());
 
-tracker.startTracking(10);
+startTracking(10);
 
 app.use("/", routes);
 
