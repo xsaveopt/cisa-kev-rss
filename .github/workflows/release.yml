@@ -18,12 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: pnpm/action-setup@v6
-
-      - uses: actions/setup-node@v6
+      - uses: pnpm/setup@v1
         with:
-          node-version: 26
-          cache: pnpm
+          runtime: node@26
+          cache: true
 
       - run: pnpm install --frozen-lockfile
 
