@@ -36,4 +36,4 @@ Environment variables:
 
 ## Requirements
 
-- Node.js 24.13.0 (configured via Volta)
+- Node.js 26
