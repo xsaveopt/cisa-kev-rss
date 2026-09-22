@@ -3,6 +3,15 @@ import { getRSS } from "./tracker.ts";
 
 const router = express.Router();
 
+router.get("/health", (req: Request, res: Response) => {
+  res.set("Content-Type", "text/plain");
+  if (getRSS()) {
+    res.status(200).send("up");
+  } else {
+    res.status(503).send("degraded");
+  }
+});
+
 const rssPath = process.env.RSS_PATH || "/rss";
 router.get(rssPath, (req: Request, res: Response) => {
   try {

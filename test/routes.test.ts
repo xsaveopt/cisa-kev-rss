@@ -43,6 +43,12 @@ describe("routes", () => {
     assert.equal(res.status, 503);
   });
 
+  it("reports degraded health while the feed is not ready", async () => {
+    const res = await fetch(`${baseUrl}/health`);
+    assert.equal(res.status, 503);
+    assert.equal(await res.text(), "degraded");
+  });
+
   it("serves the RSS feed once it is ready", async () => {
     mock.method(
       globalThis,
@@ -62,6 +68,12 @@ describe("routes", () => {
     assert.equal(res.status, 200);
     assert.match(res.headers.get("content-type") ?? "", /application\/rss\+xml/);
     assert.match(body, /<guid isPermaLink="false">CVE-2026-0001<\/guid>/);
+  });
+
+  it("reports up once the feed is ready", async () => {
+    const res = await fetch(`${baseUrl}/health`);
+    assert.equal(res.status, 200);
+    assert.equal(await res.text(), "up");
   });
 
   it("returns 404 for unknown paths", async () => {
