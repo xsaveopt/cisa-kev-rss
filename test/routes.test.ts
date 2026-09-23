@@ -43,10 +43,15 @@ describe("routes", () => {
     assert.equal(res.status, 503);
   });
 
-  it("reports degraded health while the feed is not ready", async () => {
-    const res = await fetch(`${baseUrl}/health`);
+  it("reports degraded health under the feed path while the feed is not ready", async () => {
+    const res = await fetch(`${baseUrl}/rss/health`);
     assert.equal(res.status, 503);
     assert.equal(await res.text(), "degraded");
+  });
+
+  it("never serves health at the root", async () => {
+    const res = await fetch(`${baseUrl}/health`);
+    assert.equal(res.status, 404);
   });
 
   it("serves the RSS feed once it is ready", async () => {
@@ -70,8 +75,8 @@ describe("routes", () => {
     assert.match(body, /<guid isPermaLink="false">CVE-2026-0001<\/guid>/);
   });
 
-  it("reports up once the feed is ready", async () => {
-    const res = await fetch(`${baseUrl}/health`);
+  it("reports up under the feed path once the feed is ready", async () => {
+    const res = await fetch(`${baseUrl}/rss/health`);
     assert.equal(res.status, 200);
     assert.equal(await res.text(), "up");
   });

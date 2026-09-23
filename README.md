@@ -12,7 +12,8 @@ The image is published to GHCR, tagged by version, with latest following the new
 docker run -p 3000:3000 ghcr.io/xsaveopt/cisa-kev-rss:latest
 ```
 
-The feed is then served at /rss on that port, and /health reports up or degraded depending on whether the feed has been fetched yet.
+The feed is then served at /rss on that port, and /rss/health reports up or degraded depending on whether the feed has been fetched yet.
+Overriding RSS_PATH moves both, so RSS_PATH=/blabla serves the feed at /blabla and health at /blabla/health.
 To run from source you need Node 26 and pnpm, and pnpm dev starts the server with a file watcher after a pnpm install.
 
 ## Configuration

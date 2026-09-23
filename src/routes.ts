@@ -1,12 +1,10 @@
-import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { getRSS } from "./tracker.ts";
 
 const router = express.Router();
 
 export function deriveHealthPath(rssPath: string): string {
-  const dir = path.posix.dirname(rssPath);
-  return dir === "/" || dir === "." ? "/health" : `${dir}/health`;
+  return `${rssPath.replace(/\/+$/, "")}/health`;
 }
 
 const rssPath = process.env.RSS_PATH || "/rss";

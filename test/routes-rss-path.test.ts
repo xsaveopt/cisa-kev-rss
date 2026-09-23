@@ -39,8 +39,8 @@ describe("routes with RSS_PATH set", () => {
     assert.equal(res.status, 404);
   });
 
-  it("serves health under the derived subpath", async () => {
-    const res = await fetch(`${baseUrl}/feeds/health`);
+  it("serves health under the feed path", async () => {
+    const res = await fetch(`${baseUrl}/feeds/kev.xml/health`);
 
     assert.equal(res.status, 503);
     assert.equal(await res.text(), "degraded");
@@ -55,11 +55,12 @@ describe("routes with RSS_PATH set", () => {
 
 describe("deriveHealthPath", () => {
   const cases = [
-    { rssPath: "/rss", expected: "/health" },
-    { rssPath: "/rss/", expected: "/health" },
-    { rssPath: "/blabla/rss", expected: "/blabla/health" },
-    { rssPath: "/blabla/rss/", expected: "/blabla/health" },
-    { rssPath: "/a/b/c/rss", expected: "/a/b/c/health" },
+    { rssPath: "/rss", expected: "/rss/health" },
+    { rssPath: "/rss/", expected: "/rss/health" },
+    { rssPath: "/blabla", expected: "/blabla/health" },
+    { rssPath: "/blabla/rss", expected: "/blabla/rss/health" },
+    { rssPath: "/blabla/rss/", expected: "/blabla/rss/health" },
+    { rssPath: "/a/b/c/rss", expected: "/a/b/c/rss/health" },
   ];
 
   for (const testCase of cases) {
