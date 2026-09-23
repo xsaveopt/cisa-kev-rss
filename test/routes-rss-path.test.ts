@@ -4,7 +4,7 @@ import { after, before, describe, it } from "node:test";
 import express from "express";
 
 process.env.RSS_PATH = "/feeds/kev.xml";
-const routes = (await import("../src/routes.ts")).default;
+const { default: routes, deriveHealthPath } = await import("../src/routes.ts");
 
 describe("routes with RSS_PATH set", () => {
   const app = express();
@@ -38,4 +38,33 @@ describe("routes with RSS_PATH set", () => {
 
     assert.equal(res.status, 404);
   });
+
+  it("serves health under the derived subpath", async () => {
+    const res = await fetch(`${baseUrl}/feeds/health`);
+
+    assert.equal(res.status, 503);
+    assert.equal(await res.text(), "degraded");
+  });
+
+  it("no longer serves health at the root", async () => {
+    const res = await fetch(`${baseUrl}/health`);
+
+    assert.equal(res.status, 404);
+  });
+});
+
+describe("deriveHealthPath", () => {
+  const cases = [
+    { rssPath: "/rss", expected: "/health" },
+    { rssPath: "/rss/", expected: "/health" },
+    { rssPath: "/blabla/rss", expected: "/blabla/health" },
+    { rssPath: "/blabla/rss/", expected: "/blabla/health" },
+    { rssPath: "/a/b/c/rss", expected: "/a/b/c/health" },
+  ];
+
+  for (const testCase of cases) {
+    it(`derives ${testCase.expected} from ${testCase.rssPath}`, () => {
+      assert.equal(deriveHealthPath(testCase.rssPath), testCase.expected);
+    });
+  }
 });

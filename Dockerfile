@@ -17,5 +17,5 @@ COPY --from=runner / /
 WORKDIR /app
 USER node
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT||3000}/health`).then((r)=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
+    CMD ["node", "-e", "const p=require('node:path');const rss=process.env.RSS_PATH||'/rss';const dir=p.posix.dirname(rss);const health=(dir==='/'||dir==='.')?'/health':`${dir}/health`;fetch(`http://127.0.0.1:${process.env.PORT||3000}${health}`).then((r)=>process.exit(r.status===200?0:1)).catch(()=>process.exit(1))"]
 CMD ["node", "src/server.ts"]

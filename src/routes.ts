@@ -1,9 +1,18 @@
+import path from "node:path";
 import express, { type Request, type Response } from "express";
 import { getRSS } from "./tracker.ts";
 
 const router = express.Router();
 
-router.get("/health", (req: Request, res: Response) => {
+export function deriveHealthPath(rssPath: string): string {
+  const dir = path.posix.dirname(rssPath);
+  return dir === "/" || dir === "." ? "/health" : `${dir}/health`;
+}
+
+const rssPath = process.env.RSS_PATH || "/rss";
+const healthPath = deriveHealthPath(rssPath);
+
+router.get(healthPath, (req: Request, res: Response) => {
   res.set("Content-Type", "text/plain");
   if (getRSS()) {
     res.status(200).send("up");
@@ -12,7 +21,6 @@ router.get("/health", (req: Request, res: Response) => {
   }
 });
 
-const rssPath = process.env.RSS_PATH || "/rss";
 router.get(rssPath, (req: Request, res: Response) => {
   try {
     const xml = getRSS();
