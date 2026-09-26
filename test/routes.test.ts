@@ -86,3 +86,85 @@ describe("routes", () => {
     assert.equal(res.status, 404);
   });
 });
+
+describe("routes health content type", () => {
+  const app = express();
+  app.use("/", routes);
+  let baseUrl = "";
+  let server: ReturnType<typeof app.listen>;
+
+  before(async () => {
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("answers health as plain text", async () => {
+    const res = await fetch(`${baseUrl}/rss/health`);
+    await res.text();
+
+    assert.match(res.headers.get("content-type") ?? "", /^text\/plain/);
+  });
+});
+
+describe("routes error handling", () => {
+  const app = express();
+  app.use((req, res, next) => {
+    const set = res.set.bind(res);
+    res.set = ((field: unknown, value?: unknown) => {
+      if (field === "Content-Type" && value === "application/rss+xml") {
+        throw new Error("header failure");
+      }
+      return set(field as string, value as string);
+    }) as typeof res.set;
+    next();
+  });
+  app.use("/", routes);
+  let baseUrl = "";
+  let server: ReturnType<typeof app.listen>;
+
+  before(async () => {
+    await new Promise<void>((resolve) => {
+      server = app.listen(0, () => {
+        const { port } = server.address() as AddressInfo;
+        baseUrl = `http://127.0.0.1:${port}`;
+        resolve();
+      });
+    });
+    mock.method(
+      globalThis,
+      "fetch",
+      async () =>
+        ({
+          ok: true,
+          json: async () => sampleFeed,
+        }) as unknown as Response,
+    );
+    await updateFeed();
+    mock.restoreAll();
+  });
+
+  after(async () => {
+    mock.restoreAll();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("returns 500 when building the response fails", async () => {
+    const logged = mock.method(console, "error", () => {});
+
+    const res = await fetch(`${baseUrl}/rss`);
+    const body = await res.text();
+
+    assert.equal(res.status, 500);
+    assert.equal(body, "Error generating RSS feed");
+    assert.equal(logged.mock.callCount(), 1);
+  });
+});

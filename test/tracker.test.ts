@@ -86,7 +86,174 @@ describe("tracker", () => {
     await updateFeed();
 
     assert.equal(fetched.mock.callCount(), 1);
-    assert.deepEqual(fetched.mock.calls[0]?.arguments, [FEED_URL]);
+    assert.equal(fetched.mock.calls[0]?.arguments[0], FEED_URL);
+  });
+});
+
+describe("tracker escaping", () => {
+  afterEach(() => {
+    mock.restoreAll();
+  });
+
+  const unsafe = `x<evil attr="1"/>&'`;
+  const escaped = "x&lt;evil attr=&quot;1&quot;/&gt;&amp;&apos;";
+
+  const cases = [
+    {
+      name: "cveID",
+      feed: {
+        ...sampleFeed,
+        vulnerabilities: [{ ...sampleFeed.vulnerabilities[0], cveID: `CVE-2026-0006${unsafe}` }],
+      },
+      expected: [
+        `<guid isPermaLink="false">CVE-2026-0006${escaped}</guid>`,
+        `<link>https://nvd.nist.gov/vuln/detail/CVE-2026-0006${escaped}</link>`,
+        `<title>CVE-2026-0006${escaped} – `,
+      ],
+    },
+    {
+      name: "catalogVersion",
+      feed: { ...sampleFeed, catalogVersion: `2026.07.10${unsafe}` },
+      expected: [`version 2026.07.10${escaped} (released`],
+    },
+    {
+      name: "dateReleased",
+      feed: { ...sampleFeed, dateReleased: `2026-07-10${unsafe}` },
+      expected: [`(released 2026-07-10${escaped})`],
+    },
+  ];
+
+  for (const testCase of cases) {
+    it(`escapes XML-unsafe characters in ${testCase.name}`, async () => {
+      mockFetch({ ok: true, json: async () => testCase.feed });
+
+      await updateFeed();
+      const xml = getRSS();
+
+      assert.ok(!xml.includes("<evil"), "raw markup leaked into the feed");
+      assert.doesNotMatch(xml, /&(?!(?:amp|lt|gt|quot|apos);)/);
+      for (const fragment of testCase.expected) {
+        assert.ok(xml.includes(fragment), `missing ${fragment}`);
+      }
+    });
+  }
+});
+
+describe("tracker document", () => {
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  const multiFeed = {
+    ...sampleFeed,
+    vulnerabilities: [
+      {
+        cveID: "CVE-2026-0101",
+        vulnerabilityName: "First flaw",
+        shortDescription: "First description.",
+        dateAdded: "2026-07-01",
+      },
+      {
+        cveID: "CVE-2026-0102",
+        vulnerabilityName: "Second flaw",
+        shortDescription: "Second description.",
+        dateAdded: "2026-07-02",
+      },
+      {
+        cveID: "CVE-2026-0103",
+        vulnerabilityName: "Third flaw",
+        shortDescription: "Third description.",
+        dateAdded: "2026-07-03",
+      },
+    ],
+  };
+
+  it("renders one item per vulnerability in catalog order", async () => {
+    mockFetch({ ok: true, json: async () => multiFeed });
+
+    await updateFeed();
+    const xml = getRSS();
+
+    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+    assert.equal(items.length, 3);
+    multiFeed.vulnerabilities.forEach((v, index) => {
+      const item = items[index] ?? "";
+      assert.ok(item.includes(`<title>${v.cveID} – ${v.vulnerabilityName}</title>`));
+      assert.ok(item.includes(`<guid isPermaLink="false">${v.cveID}</guid>`));
+      assert.ok(item.includes(`<link>https://nvd.nist.gov/vuln/detail/${v.cveID}</link>`));
+      assert.ok(item.includes(`<description>${v.shortDescription}</description>`));
+      assert.ok(item.includes(`<pubDate>${new Date(v.dateAdded).toUTCString()}</pubDate>`));
+    });
+  });
+
+  it("describes the channel", async () => {
+    mockFetch({ ok: true, json: async () => sampleFeed });
+
+    await updateFeed();
+    const xml = getRSS();
+
+    assert.ok(xml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'));
+    assert.match(xml, /<title>CISA Catalog of Known Exploited Vulnerabilities<\/title>/);
+    assert.ok(xml.includes(`<link>${FEED_URL}</link>`));
+    assert.ok(
+      xml.includes(
+        "<description>CISA KEV catalog – version 2026.07.10 (released 2026-07-10T17:00:25.000Z)</description>",
+      ),
+    );
+    assert.match(xml, /<language>en-US<\/language>/);
+    assert.match(xml, /<\/channel>\s*<\/rss>\s*$/);
+  });
+
+  it("stamps lastBuildDate with the build time", async () => {
+    const now = Date.UTC(2026, 6, 11, 8, 30, 15);
+    mock.timers.enable({ apis: ["Date"], now });
+    mockFetch({ ok: true, json: async () => sampleFeed });
+
+    await updateFeed();
+
+    assert.ok(getRSS().includes("<lastBuildDate>Sat, 11 Jul 2026 08:30:15 GMT</lastBuildDate>"));
+  });
+});
+
+describe("tracker request lifecycle", () => {
+  afterEach(() => {
+    mock.timers.reset();
+    mock.restoreAll();
+  });
+
+  it("passes an abort signal so a hung request cannot stall updates forever", async () => {
+    const fetched = mockFetch({ ok: true, json: async () => sampleFeed });
+
+    await updateFeed();
+
+    const init = fetched.mock.calls[0]?.arguments[1] as RequestInit | undefined;
+    assert.ok(init?.signal instanceof AbortSignal, "fetch was called without a signal");
+  });
+
+  it("does not start a new update while the previous one is still running", async () => {
+    mock.timers.enable({ apis: ["setInterval"] });
+    const pending: Array<(value: Response) => void> = [];
+    const fetched = mock.method(
+      globalThis,
+      "fetch",
+      () =>
+        new Promise<Response>((resolve) => {
+          pending.push(resolve);
+        }),
+    );
+
+    startTracking(1);
+    mock.timers.tick(60 * 1000);
+    mock.timers.tick(60 * 1000);
+    const calls = fetched.mock.callCount();
+
+    for (const resolve of pending) {
+      resolve({ ok: true, json: async () => sampleFeed } as unknown as Response);
+    }
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(calls, 1);
   });
 });
 
