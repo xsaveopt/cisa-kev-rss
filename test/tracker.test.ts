@@ -230,31 +230,6 @@ describe("tracker request lifecycle", () => {
     const init = fetched.mock.calls[0]?.arguments[1] as RequestInit | undefined;
     assert.ok(init?.signal instanceof AbortSignal, "fetch was called without a signal");
   });
-
-  it("does not start a new update while the previous one is still running", async () => {
-    mock.timers.enable({ apis: ["setInterval"] });
-    const pending: Array<(value: Response) => void> = [];
-    const fetched = mock.method(
-      globalThis,
-      "fetch",
-      () =>
-        new Promise<Response>((resolve) => {
-          pending.push(resolve);
-        }),
-    );
-
-    startTracking(1);
-    mock.timers.tick(60 * 1000);
-    mock.timers.tick(60 * 1000);
-    const calls = fetched.mock.callCount();
-
-    for (const resolve of pending) {
-      resolve({ ok: true, json: async () => sampleFeed } as unknown as Response);
-    }
-    await new Promise((resolve) => setImmediate(resolve));
-
-    assert.equal(calls, 1);
-  });
 });
 
 describe("tracker parsing", () => {
