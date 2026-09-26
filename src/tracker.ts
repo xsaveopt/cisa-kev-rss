@@ -1,3 +1,5 @@
+const FETCH_TIMEOUT_MS = 60 * 1000;
+
 const FEED_URL =
   "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json";
 
@@ -43,27 +45,28 @@ function formatDate(dateStr: string): string {
 
 export async function updateFeed(): Promise<void> {
   try {
-    const response = await fetch(FEED_URL);
+    const response = await fetch(FEED_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!response.ok) {
       console.error(`Failed to fetch CISA feed: ${response.statusText}`);
       return;
     }
     const json = (await response.json()) as KevFeed;
 
-    const catalogVersion = json.catalogVersion;
-    const dateReleased = json.dateReleased;
+    const catalogVersion = escapeXml(json.catalogVersion);
+    const dateReleased = escapeXml(json.dateReleased);
     const now = new Date().toUTCString();
 
     const items = json.vulnerabilities
       .map((v) => {
         const pubDate = formatDate(v.dateAdded);
-        const title = `${v.cveID} – ${escapeXml(v.vulnerabilityName)}`;
+        const cveID = escapeXml(v.cveID);
+        const title = `${cveID} – ${escapeXml(v.vulnerabilityName)}`;
         const description = escapeXml(v.shortDescription);
 
         return `  <item>
     <title>${title}</title>
-    <guid isPermaLink="false">${v.cveID}</guid>
-    <link>https://nvd.nist.gov/vuln/detail/${v.cveID}</link>
+    <guid isPermaLink="false">${cveID}</guid>
+    <link>https://nvd.nist.gov/vuln/detail/${cveID}</link>
     <description>${description}</description>
     <pubDate>${pubDate}</pubDate>
   </item>`;
